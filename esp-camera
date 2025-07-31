@@ -1,0 +1,362 @@
+#include "esp_camera.h"
+#include <WiFi.h>
+#include <WebServer.h>
+
+// Replace with your network credentials
+const char* ssid = "Redmi Note 13";
+const char* password = "Bubbly10";
+
+WebServer server(80);
+
+// Camera pin definitions for WROVER_KIT
+#define PWDN_GPIO_NUM    -1
+#define RESET_GPIO_NUM   -1
+#define XCLK_GPIO_NUM    21
+#define SIOD_GPIO_NUM    26
+#define SIOC_GPIO_NUM    27
+#define Y9_GPIO_NUM      35
+#define Y8_GPIO_NUM      34
+#define Y7_GPIO_NUM      39
+#define Y6_GPIO_NUM      36
+#define Y5_GPIO_NUM      19
+#define Y4_GPIO_NUM      18
+#define Y3_GPIO_NUM      5
+#define Y2_GPIO_NUM      4
+#define VSYNC_GPIO_NUM   25
+#define HREF_GPIO_NUM    23
+#define PCLK_GPIO_NUM    22
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Starting ESP32 WROVER_KIT Camera...");
+
+  // Configure camera
+  camera_config_t config;
+  config.ledc_channel = LEDC_CHANNEL_0;
+  config.ledc_timer = LEDC_TIMER_0;
+  config.pin_d0 = Y2_GPIO_NUM;
+  config.pin_d1 = Y3_GPIO_NUM;
+  config.pin_d2 = Y4_GPIO_NUM;
+  config.pin_d3 = Y5_GPIO_NUM;
+  config.pin_d4 = Y6_GPIO_NUM;
+  config.pin_d5 = Y7_GPIO_NUM;
+  config.pin_d6 = Y8_GPIO_NUM;
+  config.pin_d7 = Y9_GPIO_NUM;
+  config.pin_xclk = XCLK_GPIO_NUM;
+  config.pin_pclk = PCLK_GPIO_NUM;
+  config.pin_vsync = VSYNC_GPIO_NUM;
+  config.pin_href = HREF_GPIO_NUM;
+  config.pin_sccb_sda = SIOD_GPIO_NUM;
+  config.pin_sccb_scl = SIOC_GPIO_NUM;
+  config.pin_pwdn = PWDN_GPIO_NUM;
+  config.pin_reset = RESET_GPIO_NUM;
+  config.xclk_freq_hz = 20000000; // Matching your 20MHz setting
+  config.pixel_format = PIXFORMAT_JPEG;
+  
+  // Optimized frame size and quality for movement stability
+  if(psramFound()){
+    Serial.println("PSRAM found - using movement-optimized settings");
+    config.frame_size = FRAMESIZE_SVGA; // 800x600 - smaller for faster processing
+    config.jpeg_quality = 10; // Lower quality for faster encoding during movement
+    config.fb_count = 2; // Reduced buffer to prevent frame lag
+    config.fb_location = CAMERA_FB_IN_PSRAM;
+    config.grab_mode = CAMERA_GRAB_WHEN_EMPTY; // Wait for buffer to be empty
+
+} else {
+    Serial.println("No PSRAM - using basic settings");
+    config.frame_size = FRAMESIZE_VGA; // 640x480
+    config.jpeg_quality = 12;
+    config.fb_count = 1;
+
+}
+
+  // Initialize camera
+  esp_err_t err = esp_camera_init(&config);
+  if (err != ESP_OK) {
+    Serial.printf("Camera init failed with error 0x%x\n", err);
+    return;
+  }
+  Serial.println("Camera initialized successfully!");
+
+  // WROVER module optimized settings for external camera
+  sensor_t * s = esp_camera_sensor_get();
+  if (s != NULL) {
+    // WROVER module brightness and clarity settings
+    s->set_brightness(s, 2); // Higher brightness for WROVER external camera
+    s->set_contrast(s, 1); // Slight contrast boost
+    s->set_saturation(s, 0); // Keep saturation neutral
+    
+    // WROVER stability settings
+    s->set_gainceiling(s, (gainceiling_t)2); // Higher gain ceiling for WROVER
+    s->set_quality(s, 10); // Match frame quality
+    s->set_colorbar(s, 0); // No color bar
+    s->set_whitebal(s, 1); // Enable white balance
+    s->set_gain_ctrl(s, 1); // Enable gain control
+    s->set_exposure_ctrl(s, 1); // Enable exposure control
+    s->set_hmirror(s, 0); // No horizontal mirror
+    s->set_vflip(s, 0); // No vertical flip
+    
+    // WROVER module specific optimizations
+    s->set_awb_gain(s, 1); // Auto white balance gain
+    s->set_agc_gain(s, 1); // Enable AGC gain for WROVER
+    s->set_aec2(s, 1); // Enable AEC2 for better exposure
+    s->set_ae_level(s, 0); // Neutral AE level
+    s->set_dcw(s, 1); // Enable downsize
+    s->set_bpc(s, 0); // Disable BPC
+    s->set_wpc(s, 1); // Enable WPC
+    s->set_raw_gma(s, 1); // Enable gamma correction for clarity
+    s->set_lenc(s, 1); // Enable lens correction
+    
+    Serial.println("Camera configured for ESP32 WROVER with external camera module");
+  }
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.println("WiFi connected!");
+  
+  Serial.print("Stable Camera Ready! Go to: http://");
+  Serial.println(WiFi.localIP());
+  Serial.print("Frame URL: http://");
+  Serial.print(WiFi.localIP());
+  Serial.println("/frame");
+
+  // Start web server
+  server.on("/", handleRoot);
+  server.on("/frame", handleFrame);
+  server.on("/capture", handleCapture);
+  server.begin();
+  Serial.println("Stable video server started!");
+}
+
+void loop() {
+  server.handleClient();
+  delay(10); // Longer delay to reduce CPU load during movement
+}
+
+void handleRoot() {
+  String html = R"rawliteral(
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>ESP32 WROVER_KIT Stable Camera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { 
+      font-family: Arial; 
+      text-align: center; 
+      margin: 0px auto; 
+      padding-top: 20px;
+      background-color: #f0f0f0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .button { 
+      background-color: #4CAF50; 
+      border: none; 
+      color: white; 
+      padding: 12px 24px; 
+      text-decoration: none; 
+      display: inline-block; 
+      font-size: 16px; 
+      margin: 8px 4px; 
+      cursor: pointer; 
+      border-radius: 8px;
+      transition: background-color 0.3s;
+    }
+    .button:hover {
+      background-color: #45a049;
+    }
+    .stream-container {
+      position: relative;
+      display: inline-block;
+      border: 3px solid #ddd;
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 15px;
+      background-color: #000;
+    }
+    #camera-stream { 
+      max-width: 100%; 
+      height: auto; 
+      display: block;
+    }
+    .status {
+      background: linear-gradient(45deg, #4CAF50, #45a049);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      margin: 15px;
+      display: inline-block;
+    }
+    .fps-counter {
+      background-color: #333;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 12px;
+      margin: 5px;
+      font-family: monospace;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .controls {
+      margin: 20px 0;
+    }
+    .url-box {
+      background-color: #f8f8f8;
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: monospace;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1> ESP32 WROVER_KIT Stable Camera</h1>
+    <div class="status"> STABLE STREAMING</div>
+    <div class="fps-counter" id="fps">FPS: calculating...</div>
+    
+    <div class="stream-container">
+      <img id="camera-stream" src="/frame" alt="Live Camera Stream">
+    </div>
+    
+    <div class="controls">
+      <a href="/capture" class="button">📷 Capture Photo</a>
+      <button class="button" onclick="toggleStream()">⏸️ Pause/Resume</button>
+      <button class="button" onclick="location.reload()">🔄 Refresh Page</button>
+    </div>
+    
+    <p><strong>For Python/External Use:</strong></p>
+    <div class="url-box">http://YOUR_ESP32_IP/frame</div>
+    
+    <p><small>Optimized for ESP32 WROVER with external camera module</small></p>
+  </div>
+  
+  <script>
+    let streaming = true;
+    let frameCount = 0;
+    let startTime = Date.now();
+    let streamInterval;
+    
+    function updateStream() {
+      if (streaming) {
+        const img = document.getElementById('camera-stream');
+        const timestamp = new Date().getTime();
+        img.src = '/frame?t=' + timestamp;
+        frameCount++;
+        
+        // Update FPS counter every 2 seconds
+        if (frameCount % 20 === 0) {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const fps = Math.round(frameCount / elapsed);
+          document.getElementById('fps').textContent = 'FPS: ' + fps;
+        }
+      }
+    }
+    
+    function toggleStream() {
+      streaming = !streaming;
+      const button = event.target;
+      if (streaming) {
+        button.textContent = '⏸️ Pause';
+        startStreaming();
+      } else {
+        button.textContent = '▶️ Resume';
+        clearInterval(streamInterval);
+      }
+    }
+    
+    function startStreaming() {
+      // Arduino example refresh rate (150ms = ~6.7 FPS)
+      streamInterval = setInterval(updateStream, 150);
+    }
+    
+    // Start streaming when page loads
+    window.onload = function() {
+      startStreaming();
+    };
+    
+    // Handle image load errors with exponential backoff
+    let errorCount = 0;
+    document.getElementById('camera-stream').onerror = function() {
+      console.log('Frame load error, retrying...');
+      errorCount++;
+      const backoffTime = Math.min(1000, 100 * Math.pow(2, errorCount));
+      
+      setTimeout(() => {
+        if (streaming) {
+          updateStream();
+        }
+        errorCount = Math.max(0, errorCount - 1); // Reduce error count over time
+      }, backoffTime);
+    };
+    
+    // Reset error count on successful load
+    document.getElementById('camera-stream').onload = function() {
+      errorCount = 0;
+    };
+  </script>
+</body>
+</html>
+)rawliteral";
+  
+  server.send(200, "text/html", html);
+}
+
+void handleFrame() {
+  // Add timeout to prevent blocking
+  unsigned long startTime = millis();
+  camera_fb_t * fb = esp_camera_fb_get();
+  
+  if (!fb || (millis() - startTime > 1000)) { // 1 second timeout
+    if (fb) esp_camera_fb_return(fb);
+    Serial.println("Camera capture failed or timeout");
+    server.send(500, "text/plain", "Camera capture failed");
+    return;
+  }
+  
+  // Simple headers for fastest delivery
+  server.sendHeader("Content-Type", "image/jpeg");
+  server.sendHeader("Content-Length", String(fb->len));
+  server.sendHeader("Cache-Control", "no-cache");
+  server.sendHeader("Connection", "close");
+  
+  // Send the image
+  server.send_P(200, "image/jpeg", (const char *)fb->buf, fb->len);
+  
+  esp_camera_fb_return(fb);
+}
+
+void handleCapture() {
+  camera_fb_t * fb = esp_camera_fb_get();
+  if (!fb) {
+    server.send(500, "text/plain", "Camera capture failed");
+    return;
+  }
+  
+  String filename = "capture_" + String(millis()) + ".jpg";
+  server.sendHeader("Content-Disposition", "attachment; filename=" + filename);
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send_P(200, "image/jpeg", (const char *)fb->buf, fb->len);
+  
+  esp_camera_fb_return(fb);
+  Serial.println("Photo captured and sent!");
+}
