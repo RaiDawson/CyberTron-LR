@@ -38,9 +38,9 @@ De software is opgesplitst in modules:
 | Lange code werkte niet | Opgesplitst in testmodules |
 
 ## 🛠️ Teamleden
-- **Michelle** – Hoofd software / AI-integratie  
-- **Martin** – Mechanisch ontwerp  
-- **Mi-Ann** – Hardware-assemblage  
-- **Dawson** – Presentatie & communicatie  
-- **Bicele Lame** – Planning & documentatie
+- **Mi-ann wirjosentono** – Hardwaretechnicus & AI-embedded 
+- **Martin Koenders** – Hardwaretechnicus & Python AI-ontwikkelaar  
+- **Michêle Redjo** – Software, Integratie & Documentatie  
+- **Raï Dawson** – Presentatie & Documentatie
+- **Bicele Lame** – Projectcoördinator 
 
