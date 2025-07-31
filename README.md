@@ -39,8 +39,8 @@ De software is opgesplitst in modules:
 
 ## 🛠️ Teamleden
 - **Mi-ann wirjosentono** – Hardwaretechnicus & AI-embedded 
-- **Martin Koenders** – Hardwaretechnicus & Python AI-ontwikkelaar  
-- **Michêle Redjo** – Software, Integratie & Documentatie  
-- **Raï Dawson** – Presentatie & Documentatie
-- **Bicele Lame** – Projectcoördinator 
+- **Martin Koenders**     – Hardwaretechnicus & Python AI-ontwikkelaar  
+- **Michêle Redjo**       – Software, Integratie & Documentatie  
+- **Raï Dawson**          – Presentatie & Documentatie
+- **Bicele Lame**         – Projectcoördinator 
 
