@@ -42,5 +42,5 @@ De software is opgesplitst in modules:
 - **Martin Koenders**     – Hardwaretechnicus & Python AI-ontwikkelaar  
 - **Michêle Redjo**       – Software, Integratie & Documentatie  
 - **Raï Dawson**          – Presentatie & Documentatie
-- **Bicele Lame**         – Projectcoördinator 
+- **Bicele Lame**         – Assistentie Documentatie 
 
