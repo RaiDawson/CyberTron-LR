@@ -44,8 +44,3 @@ De software is opgesplitst in modules:
 - **Dawson** – Presentatie & communicatie  
 - **Bicele Lame** – Planning & documentatie
 
-## 🔗 Links
-- [Placeholder Link naar AI op Arduino](https://www.example.com/ai-op-arduino-toepassingen)
-
-## 📄 Licentie
-MIT License
